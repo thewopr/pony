@@ -9,6 +9,40 @@ Usage:
 import docopt
 import logging
 from itertools import product
+import collections
+
+Horse = collections.namedtuple('Horse', 'max_distance, speed')
+
+def ingest_google_test_cases(fpath):
+	
+	with open(fpath) as input:
+		
+		test_cases = []
+		
+		T = int(input.readline())
+		for tc in range(T):
+			
+			nr_cities, nr_queries = map(int, input.readline().split())
+			
+			horses = []
+			for i in range(nr_cities):
+				horses.append(Horse(*map(int, input.readline().split())))
+			
+			map_edges = []
+			for i in range(nr_cities):
+				map_edges.append(list(map(int, input.readline().split())))
+			
+			queries = []
+			for nr_queries in range(nr_queries):
+				queries.append(tuple(map(int, input.readline().split())))
+			
+			test_cases.append(dict(
+				id='%s:%d' % (fpath, tc),
+				horses=horses, 
+				map_edges=map_edges, 
+				queries=queries,
+				))
+	return test_cases
 
 def main():
 
@@ -19,43 +53,15 @@ def main():
 		logging.basicConfig(level=logging.DEBUG)
 	
 	tc = ingest_google_test_cases(args['<input>'])
-	pprint(tc)
-	sys.exit(0)
 	
-	T = int(input.readline())
-	lines = []
-	for tc in range(T):
-		
-		N, Q = map(int, input.readline().split())
-		E = []
-		S = []
-		
-		for n in range(N):
-			ei, si = map(int, input.readline().split())
-			E.append(ei)
-			S.append(si)
-		D = []
-		for n in range(N):
-			D.append(list(map(int, input.readline().split())))
-		
-		route_lookup = solve_fastest_routes(E,S,D)
-		s = 'Case #%d:' % (tc+1)
-		
-		U = []
-		K = []
-		
-		for q in range(Q):
-			Ui, Ki = map(int, input.readline().split())
-			s += ' %f' % route_lookup[Ui-1][Ki-1]
-			U.append(Ui)
-			K.append(Ki)
-		s += '\n'
-		print(s)
+	for i, test_case in enumerate(tc):
+		route_lookup = solve_fastest_routes(test_case)
+		answers = [route_lookup[src-1][dst-1] for src, dst in test_case['queries']]		
+		print('Case #%d:' % (i+1), ' '.join(('%f' % x for x in answers)))
 
-def solve_fastest_routes(E,S,D):
-	logging.debug('solve_fastest_routes:')
-	logging.debug('Max Distance: ', E)
-	logging.debug('Speed       : ', S)
+def solve_fastest_routes(test_case):
+	horses = test_case['horses']
+	D = test_case['map_edges']
 	
 	V = len(D)
 	
@@ -67,7 +73,7 @@ def solve_fastest_routes(E,S,D):
 		if i == j:
 			D[i][j] = 0
 		elif D[i][j] == -1:
-			D[i][j] = INF
+			D[i][j] = float('inf')
 	#City Map 
 	
 	# Floyd-Warshal for Shortest routes for all edge combinations
@@ -79,11 +85,11 @@ def solve_fastest_routes(E,S,D):
 	# Translate all shortest routes from SRC -> DST to TIME in hours
 	# Drop out routes that are infeasible using SRC horse
 	for i,j in product(range(V), repeat=2):	
-		if E[i] >= D[i][j]: #If the horse is capable			
-			D[i][j] /= (1.0 * S[i])
+		if horses[i][0] >= D[i][j]: #If the horse is capable			
+			D[i][j] /= (1.0 * horses[i][1])
 			logging.debug('%d -> %d: %f' % (i,j,D[i][j]))
 		else:
-			D[i][j] = INF
+			D[i][j] = float('inf')
 	#Distance converted to time
 	
 	for k, i, j in product(range(V), repeat=3):	

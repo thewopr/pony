@@ -7,36 +7,10 @@ test_case_files = (
 	('C-large-practice.in', 'C-large-practice.out'),
 	)
 
-def ingest_google_test_cases(fpath):
-	
-	with open(fpath) as input:
-		
-		test_cases = []
-		
-		T = int(input.readline())
-		for tc in range(T):
-			
-			nr_cities, nr_queries = map(int, input.readline().split())
-			
-			horses = []
-			for i in range(nr_cities):
-				horses.append(tuple(map(int, input.readline().split())))
-			
-			map_edges = []
-			for i in range(nr_cities):
-				map_edges.append(list(map(int, input.readline().split())))
-			
-			queries = []
-			for nr_queries in range(nr_queries):
-				queries.append(tuple(map(int, input.readline().split())))
-			
-			test_cases. append(dict(id='%s:%d' % (fpath, tc), horses=horses, map_edges=map_edges, queries=queries)
-	return test_cases
-	
 def ingest_google_test_case_output(fpath):
 	with open(fpath) as input:
 		
-		answers = {}
+		answers = []
 		case_nr = 1
 		for line in input.readlines():
 			if 'Case' not in line:
@@ -44,21 +18,24 @@ def ingest_google_test_case_output(fpath):
 			a = line.split(':')[1]
 			a = a.split()
 			a = tuple(map(float, a))
-			answers['%s:%d' % (fpath, case_nr)] = a
-			case_nr += 1
-			
+			answers.append(a)
 	return answers
 	
 tc = []
 for i, o in test_case_files:
-	_tc = ingest_google_test_cases(i))
+	_tc = pony.ingest_google_test_cases(i)
+	answers = ingest_google_test_case_output(o)
+	assert(len(_tc) == len(answers))
+	for x in range(len(_tc)):
+		_tc[x]['answers'] = answers[x]
+	tc.extend(_tc)
 	
-	tc.append(_tc)
+import pprint; pprint.pprint(tc)
 	
-print(tc)
-
-answers = {}
-for f in test_case_output_files:
-	answers.update(ingest_google_test_case_output(f))
-	
-print(answers)
+@pytest.mark.parametrize('tc', tc)
+def test_fastest_routes(tc):
+	route_lookup = pony.solve_fastest_routes(tc)
+	answers = [route_lookup[src-1][dst-1] for src, dst in tc['queries']]		
+	for x in range(len(answers)):
+		assert pytest.approx(answers[x], abs=1e-6, rel=1e-6) == tc['answers'][x]
+	#assert answers == pytest.approx(tc['answers'])
